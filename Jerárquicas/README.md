@@ -1,2 +1,7 @@
-# Hardware-Tarea2
-Tarea de la asignatura Hardware y sistemas operativos de la PUCV 1° semestre 2023
+# Problema del barbero resuelto de manera Jerárquica
+Para poder compilar el main.c
+```
+gcc -g main.c funciones.c funciones.h lectura.c lectura.h -o jerarquica -lpthread -lrt
+./jerarquica
+*Nombre del archivo*
+```
