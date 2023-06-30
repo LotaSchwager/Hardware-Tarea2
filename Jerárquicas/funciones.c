@@ -24,7 +24,7 @@ int *barberos_id;
 void *barbero(void *arg)
 {
 	int id = *(int *)arg;
-	printf("\nBarbero %d entra a la barberia\n\n", id);
+	printf("Barbero %d entra a la barberia\n", id);
 
 	// Bucle infinito haste que todos los clientes hayan sido atendidos
 	while (todos_finalizado == 0)
