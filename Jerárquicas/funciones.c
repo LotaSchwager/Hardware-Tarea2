@@ -5,14 +5,11 @@
 struct Barberia friseurladen;
 struct Cliente *kunde;
 
-// Mutex
-pthread_mutex_t servicio_mutex;
-pthread_mutex_t printf_mutex;
-
 // Semaforos
 sem_t wait_chair_sem;
 sem_t customer_sem;
 sem_t barber_chair;
+sem_t barber;
 
 // variables que se utilizaran para moverse entre barbero y cliente
 int posicion = 0;
@@ -20,9 +17,7 @@ int tiempo_total = 0;
 int todos_finalizado = 0;
 int sillas_barbero_disponibles = 0;
 int sillas_espera_disponibles = 0;
-int sitio_silla_disponibles = -1;
-int sitio_Barb_disponibles = 0;
-int *id_hilos;
+int cant_barberos;
 
 void *barbero(void *arg)
 {
@@ -33,21 +28,12 @@ void *barbero(void *arg)
 	{
 		sem_wait(&customer_sem);
 
-		if (sillas_barbero_disponibles >= 1)
-		{
-			sem_wait(&wait_chair_sem);
-			sillas_espera_disponibles++;
-			sillas_barbero_disponibles--;
-			sem_post(&wait_chair_sem);
+		printf("El barbero %d le esta cortando el pelo al cliente %d\n", id, posicion);
+		sleep(kunde[posicion].tiempo_corte);
 
-			pthread_mutex_lock(&servicio_mutex);
-			printf("El barbero %d esta cortando el pelo al cliente %d\n", id, posicion);
-			sleep(kunde[posicion].tiempo_corte);
-			sillas_barbero_disponibles++;
-			pthread_mutex_unlock(&servicio_mutex);
-
-			sem_post(&barber_ready_sem);
-		}
+		printf("El barbero %d termino de cortar el pelo\n", id);
+		sillas_barbero_disponibles++;
+		sem_post(&barber);
 	}
 
 	printf("El barbero %d se ha ido a su casa\n", id);
@@ -61,25 +47,39 @@ void *cliente(void *arg)
 
 	sem_wait(&wait_chair_sem);
 	posicion = client.id;
-	printf("\nCliente %d entra a la barberia\n", client.id);
+	printf("El cliente %d entra a la barberia\n", client.id);
 
-	if (sillas_espera_disponibles >= 1)
+	if (sillas_espera_disponibles > 0)
 	{
 		sillas_espera_disponibles--;
-		// id_hilos[client.id] = pthread_self();
-		printf("El cliente %d se ha sentado en la silla de espera || Asientos de espera restantes : %d\n", client.id, sillas_espera_disponibles);
+		printf("Cliente %d se sento en la silla de espera\n", client.id);
 		sem_post(&wait_chair_sem);
 
-		sem_post(&customer_sem);
-		sem_wait(&barber_ready_sem);
+		sem_wait(&barber_chair);
+		if (sillas_barbero_disponibles > 0)
+		{
+			sillas_espera_disponibles++;
+			sillas_barbero_disponibles--;
+			printf("Cliente %d se sento en la silla del barbero\n", client.id);
+			sem_post(&barber_chair);
 
-		printf("El cliente %d se fue con el pelo cortado\n", client.id);
+			sem_post(&customer_sem);
+
+			sem_wait(&barber);
+			printf("El cliente %d se fue con el pelo cortado\n", client.id);
+		}
+		else
+		{
+			sem_post(&barber_chair);
+			printf("El cliente %d no encontro una silla con el barbero asique se fue el pesao\n", client.id);
+		}
 	}
 	else
 	{
 		sem_post(&wait_chair_sem);
-		printf("Cliente %d encontro la barberia llena y se fue\n", client.id);
+		printf("El cliente %d encontro la barberia llena, se va\n", client.id);
 	}
+
 	pthread_exit(NULL);
 }
 
@@ -93,22 +93,27 @@ void controlador()
 	lectura(&friseurladen, kunde);
 
 	// Creando los hilos
-	pthread_t barber_threads[friseurladen.barberos];
+	if (friseurladen.barberos > friseurladen.sillas_barberos)
+	{
+		cant_barberos = friseurladen.sillas_barberos;
+	}
+	else
+	{
+		cant_barberos = friseurladen.barberos;
+	}
+
+	pthread_t barber_threads[cant_barberos];
 	pthread_t client_threads[size];
 
 	// Dando los valores para las sillas
-	sillas_barbero_disponibles = friseurladen.sillas_barberos;
+	sillas_barbero_disponibles = cant_barberos;
 	sillas_espera_disponibles = friseurladen.sillas_espera;
-	id_hilos = (int *)malloc((size + 2) * sizeof(int));
-
-	// Inicializando los mutex
-	pthread_mutex_init(&servicio_mutex, NULL);
-	pthread_mutex_init(&printf_mutex, NULL);
 
 	// inicializando los semaforos de las sillas
 	sem_init(&wait_chair_sem, 0, 1);
 	sem_init(&customer_sem, 0, 0);
-	sem_init(&barber_chair, 0, 0);
+	sem_init(&barber_chair, 0, 1);
+	sem_init(&barber, 0, 0);
 
 	// Inicializando el/los barbero/barberos
 	printf("Se abre la barberia\n\n");
@@ -141,21 +146,18 @@ void controlador()
 	}
 
 	todos_finalizado = 1;
-	// sem_post(&desperta_bobo);
+	sem_post(&customer_sem);
 	for (int i = 0; i < friseurladen.barberos; i++)
 	{
 		pthread_join(barber_threads[i], NULL);
 	}
 
-	pthread_mutex_destroy(&servicio_mutex);
-	pthread_mutex_destroy(&printf_mutex);
-
 	sem_destroy(&wait_chair_sem);
-	sem_destroy(&barber_ready_sem);
+	sem_destroy(&barber_chair);
 	sem_destroy(&customer_sem);
+	sem_destroy(&barber);
 
 	free(kunde);
-	free(id_hilos);
 
 	printf("\n\nSe cierra la barberia\n");
 	exit(EXIT_SUCCESS);
