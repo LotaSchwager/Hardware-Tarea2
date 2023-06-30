@@ -85,10 +85,10 @@ void barberiaInfo(char chr[], int numeros[3], int posicion)
 }
 
 // Esta función sirve para saber cuantos clientes tiene el archivo entregado
-int cantidadClientes()
+int cantidadClientes(char *nombreArchivo)
 {
 	int size = 0;
-	FILE *f = fopen("file0.data", "r");
+	FILE *f = fopen(nombreArchivo, "r");
 	if (!f)
 	{
 		return 0;
@@ -106,15 +106,18 @@ int cantidadClientes()
 }
 
 // Se rellena con los valorea deseados en array struct creados para almacenarlos
-void lectura(Barberia *b, Cliente *c)
+void lectura(Barberia *b, Cliente *c, int *error, char *nombreArchivo)
 {
 	char ch[9];
 	int lista = -2, numeros[3], posicion = 0;
-	FILE *file = fopen("file0.data", "r");
+
+	FILE *file = fopen(nombreArchivo, "r");
 	if (!file)
 	{
-		exit(-1);
+		*error = 1;
+		return;
 	}
+
 	while (fgets(ch, 9, file) != NULL)
 	{
 		if (lista == -2)
@@ -138,7 +141,6 @@ void lectura(Barberia *b, Cliente *c)
 			c[posicion].tiempo_espera = numeros[1];
 			c[posicion].tiempo_corte = numeros[2];
 			c[posicion].id = posicion;
-			c[posicion].cortando = false;
 			posicion++;
 		}
 	}

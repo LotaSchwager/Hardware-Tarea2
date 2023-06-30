@@ -19,18 +19,25 @@ int sillas_barbero_disponibles = 0;
 int sillas_espera_disponibles = 0;
 int cant_barberos;
 
+// Funcion del barbero
 void *barbero(void *arg)
 {
 	int id = *(int *)arg;
-	printf("Barbero %d entra a la barberia\n\n", id);
+	printf("\nBarbero %d entra a la barberia\n\n", id);
 
+	// Bucle infinito haste que todos los clientes hayan sido atendidos
 	while (todos_finalizado == 0)
 	{
+		// Se espera que el cliente este listo
 		sem_wait(&customer_sem);
 
+		// Se sienta el cliente en la silla
 		printf("El barbero %d le esta cortando el pelo al cliente %d\n", id, posicion);
+
+		// Se corta el pelo con el tiempo de cada cliente
 		sleep(kunde[posicion].tiempo_corte);
 
+		// Se avisa que el barbero esta listo para volver a atender
 		printf("El barbero %d termino de cortar el pelo\n", id);
 		sillas_barbero_disponibles++;
 		sem_post(&barber);
@@ -40,25 +47,32 @@ void *barbero(void *arg)
 	pthread_exit(NULL);
 }
 
+// Función del cliente
 void *cliente(void *arg)
 {
 	int tiempo = 0;
 	Cliente client = *(Cliente *)arg;
 
+	// Se entra a la primera seccion critica cuando el usuario entra a la barberia
 	sem_wait(&wait_chair_sem);
 	posicion = client.id;
 	printf("El cliente %d entra a la barberia\n", client.id);
 
+	// Se pregunta si hay sillas de espera disponibles
 	if (sillas_espera_disponibles > 0)
 	{
 		sillas_espera_disponibles--;
 		printf("Cliente %d se sento en la silla de espera | sillas de espera restantes : %d\n", client.id, sillas_espera_disponibles);
 		sem_post(&wait_chair_sem);
 
+		// Segunda seccion critica cuando el usuario quiere subir a la silla para cortarse el pelo
 		sem_wait(&barber_chair);
 		while (true)
 		{
+			// Preguntara cada segundo
 			sleep(1);
+
+			// El cliente estara en un bucle preguntando si hay una silla disponible
 			if (sillas_barbero_disponibles > 0)
 			{
 				sillas_espera_disponibles++;
@@ -66,15 +80,21 @@ void *cliente(void *arg)
 				printf("Cliente %d se sento en la silla del barbero | sillas de barbero disponibles : %d\n", client.id, sillas_barbero_disponibles);
 				sem_post(&barber_chair);
 
+				// Se le dice al barbero que esta listo el cliente para ser atendido
 				sem_post(&customer_sem);
 
+				// Se espera a que el barbero termine de atender
 				sem_wait(&barber);
+
+				// Se va de la barberia con el pelo cortado
 				printf("El cliente %d se fue con el pelo cortado\n", client.id);
 				break;
 			}
 			else
 			{
 				tiempo++;
+
+				// Si el tiempo de espera es igual al tiempo maximo que puede esperar se va de la barberia
 				if (tiempo >= client.tiempo_espera)
 				{
 					printf("El cliente %d espero mucho en el asiento asique se fue\n", client.id);
@@ -85,6 +105,7 @@ void *cliente(void *arg)
 	}
 	else
 	{
+		// Si no hay sillas de espera se va de la barberia
 		sem_post(&wait_chair_sem);
 		printf("El cliente %d encontro la barberia llena, se va\n", client.id);
 	}
@@ -94,12 +115,21 @@ void *cliente(void *arg)
 
 void controlador()
 {
+	// Se espera por el nombre del archivo
+	char nombreArchivo[31];
+	scanf("%s", nombreArchivo);
+
 	// Se crea el array de clientes
-	int size = cantidadClientes() - 2;
+	int size = cantidadClientes(nombreArchivo) - 2;
 	kunde = (Cliente *)malloc(size * sizeof(Cliente));
 
 	// Se lee el archivo y se guardan los valores
-	lectura(&friseurladen, kunde);
+	int error = 0;
+	lectura(&friseurladen, kunde, &error, nombreArchivo);
+	if (error)
+	{
+		printf("Error al cargar el archivo\n");
+	}
 
 	// Creando los hilos
 	if (friseurladen.barberos > friseurladen.sillas_barberos)
@@ -119,9 +149,9 @@ void controlador()
 	sillas_espera_disponibles = friseurladen.sillas_espera;
 
 	// inicializando los semaforos de las sillas
-	sem_init(&wait_chair_sem, 0, 1);
+	sem_init(&wait_chair_sem, 0, friseurladen.sillas_espera);
 	sem_init(&customer_sem, 0, 0);
-	sem_init(&barber_chair, 0, 1);
+	sem_init(&barber_chair, 0, cant_barberos);
 	sem_init(&barber, 0, 0);
 
 	// Inicializando el/los barbero/barberos
@@ -154,10 +184,13 @@ void controlador()
 		pthread_join(client_threads[i], NULL);
 	}
 
+	// Se indica que se ha atendido a todos los clientes
 	todos_finalizado = 1;
-	sem_post(&customer_sem);
+
+	// Se vuelve activar el barbero
 	for (int i = 0; i < friseurladen.barberos; i++)
 	{
+		sem_post(&customer_sem);
 		pthread_join(barber_threads[i], NULL);
 	}
 

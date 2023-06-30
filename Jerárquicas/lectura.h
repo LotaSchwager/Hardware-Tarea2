@@ -21,9 +21,8 @@ typedef struct Cliente
 	int tiempo_espera;
 	int tiempo_corte;
 	int id;
-	bool cortando;
 } Cliente;
 
 int cantidadClientes();
 
-void lectura(Barberia *b, Cliente *c);
+void lectura(Barberia *b, Cliente *c, int *error, char *nombreArchivo);
