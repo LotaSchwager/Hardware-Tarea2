@@ -42,7 +42,7 @@ void *barbero(void *arg)
 
 void *cliente(void *arg)
 {
-	int miAsiento, b;
+	int tiempo = 0;
 	Cliente client = *(Cliente *)arg;
 
 	sem_wait(&wait_chair_sem);
@@ -52,26 +52,35 @@ void *cliente(void *arg)
 	if (sillas_espera_disponibles > 0)
 	{
 		sillas_espera_disponibles--;
-		printf("Cliente %d se sento en la silla de espera\n", client.id);
+		printf("Cliente %d se sento en la silla de espera | sillas de espera restantes : %d\n", client.id, sillas_espera_disponibles);
 		sem_post(&wait_chair_sem);
 
 		sem_wait(&barber_chair);
-		if (sillas_barbero_disponibles > 0)
+		while (true)
 		{
-			sillas_espera_disponibles++;
-			sillas_barbero_disponibles--;
-			printf("Cliente %d se sento en la silla del barbero\n", client.id);
-			sem_post(&barber_chair);
+			sleep(1);
+			if (sillas_barbero_disponibles > 0)
+			{
+				sillas_espera_disponibles++;
+				sillas_barbero_disponibles--;
+				printf("Cliente %d se sento en la silla del barbero | sillas de barbero disponibles : %d\n", client.id, sillas_barbero_disponibles);
+				sem_post(&barber_chair);
 
-			sem_post(&customer_sem);
+				sem_post(&customer_sem);
 
-			sem_wait(&barber);
-			printf("El cliente %d se fue con el pelo cortado\n", client.id);
-		}
-		else
-		{
-			sem_post(&barber_chair);
-			printf("El cliente %d no encontro una silla con el barbero asique se fue el pesao\n", client.id);
+				sem_wait(&barber);
+				printf("El cliente %d se fue con el pelo cortado\n", client.id);
+				break;
+			}
+			else
+			{
+				tiempo++;
+				if (tiempo >= client.tiempo_espera)
+				{
+					printf("El cliente %d espero mucho en el asiento asique se fue\n", client.id);
+					break;
+				}
+			}
 		}
 	}
 	else
