@@ -91,7 +91,7 @@ int cantidadClientes(char *nombreArchivo)
 	FILE *f = fopen(nombreArchivo, "r");
 	if (!f)
 	{
-		return 0;
+		return -1;
 	}
 
 	for (char c = getc(f); c != EOF; c = getc(f))

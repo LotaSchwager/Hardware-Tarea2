@@ -18,6 +18,7 @@ int todos_finalizado = 0;
 int sillas_barbero_disponibles = 0;
 int sillas_espera_disponibles = 0;
 int cant_barberos;
+int *barberos_id;
 
 // Funcion del barbero
 void *barbero(void *arg)
@@ -30,6 +31,11 @@ void *barbero(void *arg)
 	{
 		// Se espera que el cliente este listo
 		sem_wait(&customer_sem);
+
+		if (todos_finalizado != 0)
+		{
+			break;
+		}
 
 		// Se sienta el cliente en la silla
 		printf("El barbero %d le esta cortando el pelo al cliente %d\n", id, posicion);
@@ -121,6 +127,12 @@ void controlador()
 
 	// Se crea el array de clientes
 	int size = cantidadClientes(nombreArchivo) - 2;
+	if (size == -1)
+	{
+		printf("Error al cargar el archivo\n");
+		return;
+	}
+
 	kunde = (Cliente *)malloc(size * sizeof(Cliente));
 
 	// Se lee el archivo y se guardan los valores
@@ -129,6 +141,7 @@ void controlador()
 	if (error)
 	{
 		printf("Error al cargar el archivo\n");
+		return;
 	}
 
 	// Creando los hilos
@@ -148,11 +161,18 @@ void controlador()
 	sillas_barbero_disponibles = cant_barberos;
 	sillas_espera_disponibles = friseurladen.sillas_espera;
 
+	// Rellenando los id de los barberos
+	barberos_id = (int *)malloc(cant_barberos * sizeof(int));
+	for (int i = 0; i < cant_barberos; i++)
+	{
+		barberos_id[i] = i;
+	}
+
 	// inicializando los semaforos de las sillas
 	sem_init(&wait_chair_sem, 0, friseurladen.sillas_espera);
-	sem_init(&customer_sem, 0, 0);
 	sem_init(&barber_chair, 0, cant_barberos);
 	sem_init(&barber, 0, 0);
+	sem_init(&customer_sem, 0, 0);
 
 	// Inicializando el/los barbero/barberos
 	printf("Se abre la barberia\n\n");
@@ -162,9 +182,9 @@ void controlador()
 		return;
 	}
 
-	for (int i = 0; i < friseurladen.barberos; i++)
+	for (int i = 0; i < cant_barberos; i++)
 	{
-		pthread_create(&barber_threads[i], NULL, barbero, (void *)&i);
+		pthread_create(&barber_threads[i], NULL, barbero, (void *)&barberos_id[i]);
 	}
 
 	// Inicializando los clientes
@@ -200,6 +220,7 @@ void controlador()
 	sem_destroy(&barber);
 
 	free(kunde);
+	free(barberos_id);
 
 	printf("\n\nSe cierra la barberia\n");
 	exit(EXIT_SUCCESS);
