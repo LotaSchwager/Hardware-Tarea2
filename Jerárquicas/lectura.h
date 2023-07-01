@@ -23,6 +23,6 @@ typedef struct Cliente
 	int id;
 } Cliente;
 
-int cantidadClientes();
+int cantidadClientes(char *nombreArchivo);
 
 void lectura(Barberia *b, Cliente *c, int *error, char *nombreArchivo);
