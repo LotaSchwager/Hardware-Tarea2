@@ -24,6 +24,7 @@ int *barberos_id;
 void *barbero(void *arg)
 {
 	int id = *(int *)arg;
+	// Entra el barbero
 	printf("Barbero %d entra a la barberia\n", id);
 
 	// Bucle infinito haste que todos los clientes hayan sido atendidos
@@ -207,18 +208,26 @@ void controlador()
 	// Se indica que se ha atendido a todos los clientes
 	todos_finalizado = 1;
 
-	// Se vuelve activar el barbero
-	for (int i = 0; i < friseurladen.barberos; i++)
+	// Se activa el semaforo para que los barberos salgan del bucle y terminen su ejecucion
+	for (int i = 0; i < cant_barberos; i++)
 	{
 		sem_post(&customer_sem);
+	}
+
+	// Los barberos salen de la barberia
+	for (int i = 0; i < cant_barberos; i++)
+	{
+		// sem_post(&customer_sem);
 		pthread_join(barber_threads[i], NULL);
 	}
 
+	// se destruyen los semaforos
 	sem_destroy(&wait_chair_sem);
 	sem_destroy(&barber_chair);
 	sem_destroy(&customer_sem);
 	sem_destroy(&barber);
 
+	// Se libera memoria de las variables que ocupan malloc
 	free(kunde);
 	free(barberos_id);
 
